@@ -100,21 +100,6 @@ func (g *groupImpl) create(ctx context.Context, streamName string) (*writerImpl,
 		return nil, err
 	}
 
-	description, err := g.DescribeLogStreamsWithContext(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
-		LogGroupName:        aws.String(g.groupName),
-		LogStreamNamePrefix: aws.String(streamName),
-	})
-
-	if err != nil {
-		return nil, errors.Wrap(err, "couldn't get log stream description")
-	}
-
-	if len(description.LogStreams) == 0 {
-		return nil, errors.Errorf("logs streams data missing for %s", streamName)
-	}
-
-	ret.sequenceToken = description.LogStreams[0].UploadSequenceToken
-
 	return ret, nil
 }
 
