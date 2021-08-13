@@ -17,7 +17,7 @@ type readerImpl struct {
 	client iface.CloudWatchLogsAPI
 	ctx    context.Context
 
-	throttle <-chan time.Time
+	throttle *time.Ticker
 	buffer   lockingBuffer
 
 	// If an error occurs when getting events from the stream, this will be
@@ -38,9 +38,14 @@ func (r *readerImpl) Read(b []byte) (int, error) {
 	return r.buffer.Read(b)
 }
 
+func (r *readerImpl) Close() error {
+	r.throttle.Stop()
+	return nil
+}
+
 func (r *readerImpl) start() {
 	for {
-		<-r.throttle
+		<-r.throttle.C
 		if r.err = r.read(); r.err != nil {
 			return
 		}

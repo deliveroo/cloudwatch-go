@@ -27,7 +27,7 @@ type writerImpl struct {
 	nowFunc func() time.Time
 	onEvent func(*cloudwatchlogs.InputLogEvent)
 
-	throttle <-chan time.Time
+	throttle *time.Ticker
 
 	sync.Mutex // This protects calls to flush.
 }
@@ -87,6 +87,8 @@ func (w *writerImpl) start() error {
 // Close closes the writer. Any subsequent calls to Write will return
 // io.ErrClosedPipe.
 func (w *writerImpl) Close() error {
+	defer w.throttle.Stop()
+
 	w.closed = true
 	for w.events.hasMore() {
 		if w.flushTrottled() != nil {
@@ -97,7 +99,7 @@ func (w *writerImpl) Close() error {
 }
 
 func (w *writerImpl) flushTrottled() error {
-	<-w.throttle
+	<-w.throttle.C
 	return w.flushBatch()
 }
 

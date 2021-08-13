@@ -59,13 +59,13 @@ func (g *groupImpl) Name() string {
 	return g.groupName
 }
 
-func (g *groupImpl) Open(ctx context.Context, streamName string) io.Reader {
+func (g *groupImpl) Open(ctx context.Context, streamName string) io.ReadCloser {
 	ret := &readerImpl{
 		client:     g,
 		ctx:        ctx,
 		groupName:  aws.String(g.groupName),
 		streamName: aws.String(streamName),
-		throttle:   time.Tick(readThrottle),
+		throttle:   time.NewTicker(readThrottle),
 	}
 
 	go ret.start()
@@ -79,7 +79,7 @@ func (g *groupImpl) create(ctx context.Context, streamName string) (*writerImpl,
 		events:     newEventsBuffer(),
 		groupName:  aws.String(g.groupName),
 		streamName: aws.String(streamName),
-		throttle:   time.Tick(writeThrottle),
+		throttle:   time.NewTicker(writeThrottle),
 	}
 
 	unlock := g.locker.Lock(streamName)
@@ -94,6 +94,10 @@ func (g *groupImpl) create(ctx context.Context, streamName string) (*writerImpl,
 		return ret, nil
 	} else if _, ok := err.(*cloudwatchlogs.ResourceAlreadyExistsException); !ok {
 		return nil, errors.Wrap(err, "could not create the log stream")
+	}
+
+	if ret.sequenceToken, err = g.getSequenceTokenWithBackoff(ctx, streamName); err != nil {
+		return nil, err
 	}
 
 	description, err := g.DescribeLogStreamsWithContext(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
@@ -112,4 +116,37 @@ func (g *groupImpl) create(ctx context.Context, streamName string) (*writerImpl,
 	ret.sequenceToken = description.LogStreams[0].UploadSequenceToken
 
 	return ret, nil
+}
+
+func (g *groupImpl) getSequenceTokenWithBackoff(ctx context.Context, streamName string) (*string, error) {
+	var err error
+	var token *string
+
+	for i := 1; i <= 3; i++ {
+		if token, err = g.getSequenceToken(ctx, streamName); err != nil {
+			time.Sleep(time.Duration(i) * time.Second)
+			continue
+		}
+
+		break
+	}
+
+	return token, err
+}
+
+func (g *groupImpl) getSequenceToken(ctx context.Context, streamName string) (*string, error) {
+	description, err := g.DescribeLogStreamsWithContext(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
+		LogGroupName:        aws.String(g.groupName),
+		LogStreamNamePrefix: aws.String(streamName),
+	})
+
+	if err != nil {
+		return nil, errors.Wrap(err, "couldn't get log stream description")
+	}
+
+	if len(description.LogStreams) == 0 {
+		return nil, errors.Errorf("logs streams data missing for %s", streamName)
+	}
+
+	return description.LogStreams[0].UploadSequenceToken, nil
 }

@@ -35,6 +35,6 @@ type Group interface {
 	// Name of the CloudWatch Logs group owned by this proxy.
 	Name() string
 
-	// Open returns an io.Reader to read from the log stream.
-	Open(ctx context.Context, streamName string) io.Reader
+	// Open returns an io.Readcloser to read from the log stream.
+	Open(ctx context.Context, streamName string) io.ReadCloser
 }

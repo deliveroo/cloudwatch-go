@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -19,7 +20,7 @@ type readerTestSuite struct {
 	api                   *mockAPI
 	ctx                   context.Context
 	groupName, streamName string
-	sut                   io.Reader
+	sut                   io.ReadCloser
 }
 
 func (r *readerTestSuite) SetupTest() {
@@ -33,7 +34,12 @@ func (r *readerTestSuite) SetupTest() {
 		ctx:        r.ctx,
 		groupName:  aws.String(r.groupName),
 		streamName: aws.String(r.streamName),
+		throttle:   time.NewTicker(time.Nanosecond),
 	}
+}
+
+func (r *readerTestSuite) TearDownTest() {
+	r.Require().NoError(r.sut.Close())
 }
 
 func (r *readerTestSuite) TestSimpleRead() {
