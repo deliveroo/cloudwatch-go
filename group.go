@@ -75,6 +75,7 @@ func (g *groupImpl) Open(ctx context.Context, streamName string) io.ReadCloser {
 func (g *groupImpl) create(ctx context.Context, streamName string) (*writerImpl, error) {
 	ret := &writerImpl{
 		client:     g,
+		closeChan:  make(chan struct{}),
 		ctx:        ctx,
 		events:     newEventsBuffer(),
 		groupName:  aws.String(g.groupName),

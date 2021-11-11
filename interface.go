@@ -2,7 +2,6 @@ package cloudwatch
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
@@ -17,7 +16,7 @@ type RejectedLogEventsInfoError struct {
 }
 
 func (e *RejectedLogEventsInfoError) Error() string {
-	return fmt.Sprintf("log messages were rejected")
+	return "log messages were rejected"
 }
 
 // CreateOption allows setting various options on the resulting writer.

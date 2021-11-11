@@ -20,8 +20,9 @@ type writerImpl struct {
 
 	ctx context.Context
 
-	closed bool
-	err    error
+	closeChan chan (struct{})
+	closed    bool
+	err       error
 
 	events  *eventsBuffer
 	nowFunc func() time.Time
@@ -71,15 +72,15 @@ func (w *writerImpl) Write(b []byte) (int, error) {
 }
 
 // Start continuously flushing the buffered events.
-func (w *writerImpl) start() error {
+func (w *writerImpl) start() (err error) {
 	for {
-		// Exit if the stream is closed.
-		if w.closed {
-			return nil
-		}
-
-		if err := w.flushTrottled(); err != nil {
-			return err
+		select {
+		case <-w.closeChan:
+			return
+		case <-w.throttle.C:
+			if err = w.flushBatch(); err != nil {
+				return
+			}
 		}
 	}
 }
@@ -90,11 +91,14 @@ func (w *writerImpl) Close() error {
 	defer w.throttle.Stop()
 
 	w.closed = true
+	close(w.closeChan)
+
 	for w.events.hasMore() {
 		if w.flushTrottled() != nil {
 			break
 		}
 	}
+
 	return w.err
 }
 

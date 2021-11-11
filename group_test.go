@@ -56,8 +56,6 @@ func (gs *groupTestSuite) TestCreateWithExistingStream_OK() {
 }
 
 func (gs *groupTestSuite) TestCreateWithExistingStream_UnexpectedFailure() {
-	const sequenceToken = "sequenceToken"
-
 	gs.creatingLogStreamReturns(errors.New("bacon"))
 
 	writer, err := gs.sut.Create(gs.ctx, gs.streamName)
