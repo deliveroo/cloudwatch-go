@@ -1,4 +1,4 @@
-module github.com/marcinwyszynski/cloudwatch
+module github.com/deliveroo/cloudwatch-go
 
 go 1.13
 
